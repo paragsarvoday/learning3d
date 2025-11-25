@@ -272,22 +272,21 @@ class Gaussians:
         Returns:
             cov_3D  :   A torch.Tensor of shape (N, 3, 3)
         """
-        ### YOUR CODE HERE ###
-        # HINT: For computing the jacobian J, can you find a function in this file that can help?
-        J = None  # (N, 2, 3)
 
-        ### YOUR CODE HERE ###
-        # HINT: Can you extract the world to camera rotation matrix (W) from one of the inputs
-        # of this function?
+        J = self._compute_jacobian(means_3D, camera, img_size) # (N, 2, 3)
+
+        # pytorch3d uses a row-vector convention, x_view = x_world @ R + T
+        # covariance propagation formulas assume column-vector convention, x_view = R @ x_world + T
+        # hence, W_paper = R_{pytorch3d}^T
+
+        # camera.R is (1, 3, 3)
+        W = camera.R.transpose(1, 2).repeat(len(means_3D), 1, 1)  # (N, 3, 3)
         W = None  # (N, 3, 3)
 
-        ### YOUR CODE HERE ###
-        # HINT: Can you find a function in this file that can help?
-        cov_3D = None  # (N, 3, 3)
+        cov_3D = self.compute_cov_3D(quats, scales)  # (N, 3, 3)
 
-        ### YOUR CODE HERE ###
-        # HINT: Use the above three variables to compute cov_2D
         cov_2D = None  # (N, 2, 2)
+        cov_2D = J @ W @ cov_3D @ W.permute(0, 2, 1) @ J.permute(0, 2, 1)
 
         # Post processing to make sure that each 2D Gaussian covers atleast approximately 1 pixel
         cov_2D[:, 0, 0] += 0.3
@@ -313,6 +312,10 @@ class Gaussians:
         # HINT: Do note that means_2D have units of pixels. Hence, you must apply a
         # transformation that moves points in the world space to screen space.
         means_2D = None  # (N, 2)
+        means_2D = camera.transform_points_screen(means_3D, image_size=camera.image_size)  
+
+        # need only the x and y coordinates
+        means_2D = means_2D[:, :2]  # (N, 2)
         return means_2D
 
     @staticmethod
