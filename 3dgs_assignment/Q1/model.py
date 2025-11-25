@@ -1,6 +1,7 @@
 import math
 import torch
 import numpy as np
+import pytorch3d
 
 from typing import Tuple, Optional
 from pytorch3d.ops.knn import knn_points
@@ -229,22 +230,24 @@ class Gaussians:
         Returns:
             cov_3D  :   A torch.Tensor of shape (N, 3, 3)
         """
-        # NOTE: While technically you can use (almost) the same code for the
-        # isotropic and anisotropic case, can you think of a more efficient
-        # code for the isotropic case?
 
-        # HINT: Are quats ever used or optimized for isotropic gaussians? What will their value be?
-        # Based on your answers, can you write a more efficient code for the isotropic case?
         if self.is_isotropic:
+            
+            # isotropic case is just scale^2 * I
+            # isotropic gaussians are essentially spheres, so rotation does not matter
+            
+            N = len(scales)
+            eye = torch.eye(3, device=self.device).unsqueeze(0)  # (1, 3, 3)
+            cov_3D = eye * (scales**2).unsqueeze(-1)  # (1, 3, 3) * (N, 1, 1) -> (N, 3, 3)
 
-            ### YOUR CODE HERE ###
-            cov_3D = None  # (N, 3, 3)
-
-        # HINT: You can use a function from pytorch3d to convert quaternions to rotation matrices.
         else:
-
-            ### YOUR CODE HERE ###
-            cov_3D = None  # (N, 3, 3)
+            # convert quaternions to rotation matrices using pytorch3d
+            R = pytorch3d.transforms.quaternion_to_matrix(quats)  # (N, 3, 3)
+            S = torch.zeros((len(scales), 3, 3), device=self.device)  # (N, 3, 3)
+            S[:, 0, 0] = scales[:, 0] ** 2
+            S[:, 1, 1] = scales[:, 1] ** 2
+            S[:, 2, 2] = scales[:, 2] ** 2
+            cov_3D = R @ S @ R.permute(0, 2, 1)  # (N, 3, 3)            
 
         return cov_3D
 
