@@ -401,10 +401,19 @@ class Scene:
         Returns:
             z_vals  :   A torch.Tensor of shape (N,) with the depth of each 3D Gaussian.
         """
-        ### YOUR CODE HERE ###
         # HINT: You can use get the means of 3D Gaussians self.gaussians and calculate
         # the depth using the means and the camera
-        z_vals = None  # (N,)
+
+        # get means of 3D gaussians in world coordinates
+        means_3D = self.gaussians.means  # (N, 3)
+
+        # transform to get points from world to view space
+        view_transform = camera.get_world_to_view_transform()
+
+        # get means to view space
+        means_view_space = view_transform.transform_points(means_3D)  # (N, 3)
+
+        z_vals = means_view_space[:, 2]  # (N,)
 
         return z_vals
 
@@ -424,8 +433,12 @@ class Scene:
 
         Please refer to the README file for more details.
         """
-        ### YOUR CODE HERE ###
-        idxs = None  # (N,)
+        
+        valid_mask = z_vals >= 0.0  # (M,)
+        valid_z_vals = z_vals[valid_mask]  # (N,)
+        sorted_indices = torch.argsort(valid_z_vals)  # (N,)
+        original_indices = torch.nonzero(valid_mask, as_tuple=False).squeeze(1)  # (N,)
+        idxs = original_indices[sorted_indices]  # (N,)
 
         return idxs
 
@@ -461,18 +474,21 @@ class Scene:
 
         ### YOUR CODE HERE ###
         # HINT: Can you find a function in this file that can help?
-        cov_2D_inverse = None  # (N, 2, 2) TODO: Verify shape
+        cov_2D_inverse = Gaussians.invert_cov_2D(cov_2D) # (N, 2, 2)
 
         ### YOUR CODE HERE ###
         # HINT: Can you find a function in this file that can help?
-        power = None  # (N, H*W)
+        power = Gaussians.evaluate_gaussian_2D(points_2D, means_2D, cov_2D_inverse)  # (N, H*W)
 
         # Computing exp(power) with some post processing for numerical stability
         exp_power = torch.where(power > 0.0, 0.0, torch.exp(power))
 
         ### YOUR CODE HERE ###
         # HINT: Refer to README for a relevant equation.
-        alphas = None  # (N, H*W)
+
+        alphas = opacities.unsqueeze(1) * exp_power  # (N, H*W)
+
+
         alphas = torch.reshape(alphas, (-1, H, W))  # (N, H, W)
 
         # Post processing for numerical stability
@@ -524,7 +540,8 @@ class Scene:
 
         ### YOUR CODE HERE ###
         # HINT: Refer to README for a relevant equation.
-        transmittance = None  # (N, H, W)
+        transmittance = torch.cumprod(one_minus_alphas, dim=0)  # (N+1, H, W)
+        transmittance = transmittance[:-1, :, :]  # (N, H, W)
 
         # Post processing for numerical stability
         transmittance = torch.where(transmittance < 1e-4, 0.0, transmittance)  # (N, H, W)
