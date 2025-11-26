@@ -247,7 +247,7 @@ class Gaussians:
             S[:, 0, 0] = scales[:, 0] ** 2
             S[:, 1, 1] = scales[:, 1] ** 2
             S[:, 2, 2] = scales[:, 2] ** 2
-            cov_3D = R @ S @ R.permute(0, 2, 1)  # (N, 3, 3)            
+            cov_3D = R @ S @ R.permute(0, 2, 1)  # (N, 3, 3)                       
 
         return cov_3D
 
@@ -275,17 +275,11 @@ class Gaussians:
 
         J = self._compute_jacobian(means_3D, camera, img_size) # (N, 2, 3)
 
-        # pytorch3d uses a row-vector convention, x_view = x_world @ R + T
-        # covariance propagation formulas assume column-vector convention, x_view = R @ x_world + T
-        # hence, W_paper = R_{pytorch3d}^T
-
         # camera.R is (1, 3, 3)
-        W = camera.R.transpose(1, 2).repeat(len(means_3D), 1, 1)  # (N, 3, 3)
-        W = None  # (N, 3, 3)
+        W = camera.R.repeat(len(means_3D), 1, 1)  # (N, 3, 3)
 
         cov_3D = self.compute_cov_3D(quats, scales)  # (N, 3, 3)
 
-        cov_2D = None  # (N, 2, 2)
         cov_2D = J @ W @ cov_3D @ W.permute(0, 2, 1) @ J.permute(0, 2, 1)
 
         # Post processing to make sure that each 2D Gaussian covers atleast approximately 1 pixel
@@ -364,6 +358,13 @@ class Gaussians:
         ### YOUR CODE HERE ###
         # HINT: Refer to README for a relevant equation
         power = None  # (N, H*W)
+
+        diff = points_2D - means_2D  # (N, HW, 2)
+
+        # (N, HW, 2) @ (N, 2, 2) -> (N, HW, 2)
+        temp = diff @ cov_2D_inverse
+
+        power = -0.5 * (temp * diff).sum(dim=-1)  # (N, HW)
 
         return power
 
