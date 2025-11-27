@@ -302,11 +302,10 @@ class Gaussians:
             means_2D    :   A torch.Tensor of shape (N, 2) representing the means of
                             2D Gaussians.
         """
-        ### YOUR CODE HERE ###
         # HINT: Do note that means_2D have units of pixels. Hence, you must apply a
         # transformation that moves points in the world space to screen space.
-        means_2D = None  # (N, 2)
-        means_2D = camera.transform_points_screen(means_3D, image_size=camera.image_size)  
+        
+        means_2D = camera.transform_points_screen(means_3D, image_size=camera.image_size)  # (N, 2)
 
         # need only the x and y coordinates
         means_2D = means_2D[:, :2]  # (N, 2)
@@ -355,9 +354,6 @@ class Gaussians:
             power           :   A torch.Tensor of shape (N, H*W) representing the computed
                                 power of the N 2D Gaussians at every pixel location in an image.
         """
-        ### YOUR CODE HERE ###
-        # HINT: Refer to README for a relevant equation
-        power = None  # (N, H*W)
 
         diff = points_2D - means_2D  # (N, HW, 2)
 
@@ -472,22 +468,16 @@ class Scene:
         points_2D = points_2D.unsqueeze(0)  # (1, H*W, 2)
         means_2D = means_2D.unsqueeze(1)  # (N, 1, 2)
 
-        ### YOUR CODE HERE ###
         # HINT: Can you find a function in this file that can help?
         cov_2D_inverse = Gaussians.invert_cov_2D(cov_2D) # (N, 2, 2)
 
-        ### YOUR CODE HERE ###
         # HINT: Can you find a function in this file that can help?
         power = Gaussians.evaluate_gaussian_2D(points_2D, means_2D, cov_2D_inverse)  # (N, H*W)
 
         # Computing exp(power) with some post processing for numerical stability
         exp_power = torch.where(power > 0.0, 0.0, torch.exp(power))
 
-        ### YOUR CODE HERE ###
-        # HINT: Refer to README for a relevant equation.
-
         alphas = opacities.unsqueeze(1) * exp_power  # (N, H*W)
-
 
         alphas = torch.reshape(alphas, (-1, H, W))  # (N, H, W)
 
@@ -538,8 +528,6 @@ class Scene:
         one_minus_alphas = 1.0 - alphas
         one_minus_alphas = torch.concat((S, one_minus_alphas), dim=0)  # (N+1, H, W)
 
-        ### YOUR CODE HERE ###
-        # HINT: Refer to README for a relevant equation.
         transmittance = torch.cumprod(one_minus_alphas, dim=0)  # (N+1, H, W)
         transmittance = transmittance[:-1, :, :]  # (N, H, W)
 
@@ -587,11 +575,9 @@ class Scene:
         """
         # Step 1: Compute 2D gaussian parameters
 
-        ### YOUR CODE HERE ###
         # HINT: Can you find a function in this file that can help?
         means_2D = Gaussians.compute_means_2D(means_3D, camera)  # (N, 2)
 
-        ### YOUR CODE HERE ###
         # HINT: Can you find a function in this file that can help?
         cov_2D = self.gaussians.compute_cov_2D(
             means_3D, quats, scales, camera, img_size
@@ -599,7 +585,6 @@ class Scene:
 
         # Step 2: Compute alpha maps for each gaussian
 
-        ### YOUR CODE HERE ###
         # HINT: Can you find a function in this file that can help?
         alphas = self.compute_alphas(
             opacities, means_2D, cov_2D, img_size
@@ -607,7 +592,6 @@ class Scene:
 
         # Step 3: Compute transmittance maps for each gaussian
 
-        ### YOUR CODE HERE ###
         # HINT: Can you find a function in this file that can help?
         transmittance = self.compute_transmittance(
             alphas, start_transmittance
@@ -623,16 +607,13 @@ class Scene:
 
         # Step 4: Create image, depth and mask by computing the colours for each pixel.
 
-        ### YOUR CODE HERE ###
         # HINT: Refer to README for a relevant equation
         image = torch.sum(transmittance * alphas * colours, dim=0)  # (H, W, 3)
 
-        ### YOUR CODE HERE ###
         # HINT: Can you implement an equation inspired by the equation for colour?
         # D = Sum( T_i * alpha_i * z_i )
         depth = torch.sum(transmittance * alphas * z_vals, dim=0)  # (H, W, 1)
 
-        ### YOUR CODE HERE ###
         # HINT: Can you implement an equation inspired by the equation for colour?
         # M = Sum( T_i * alpha_i * 1 )
         mask = torch.sum(transmittance * alphas, dim=0)  # (H, W, 1)

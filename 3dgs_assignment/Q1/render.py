@@ -49,7 +49,6 @@ def create_renders(args):
 
         with torch.no_grad():
             # Rendering scene using gaussian splatting
-            ### YOUR CODE HERE ###
             # HINT: Can any function from the Scene class help?
             # HINT: Set bg_colour to (1.0, 1.0, 1.0)
             # HINT: Get per_splat from args.gaussians_per_splat
